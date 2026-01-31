@@ -92,13 +92,11 @@ type xmlRun struct {
 }
 
 type xmlAttempt struct {
-	Id              int    `xml:"id,attr"`
-	IsStartedSynced bool   `xml:"isStartedSynced,attr"`
-	IsEndedSynced   bool   `xml:"isEndedSynced,attr"`
-	Started         string `xml:"started,attr"`
-	Ended           string `xml:"ended,attr"`
-	RealTime        Duration
-	GameTime        Duration
+	Id       int    `xml:"id,attr"`
+	Started  string `xml:"started,attr"`
+	Ended    string `xml:"ended,attr"`
+	RealTime Duration
+	GameTime Duration
 }
 
 type xmlSegment struct {

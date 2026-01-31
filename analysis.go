@@ -84,10 +84,8 @@ func analysisInfo() {
 	bestTime := Duration(math.MaxInt64)
 	for _, attempt := range run.Attempt {
 		attempts[attempt.Id] = attempt
-		if attempt.IsStartedSynced && attempt.IsEndedSynced {
-			if attempt.GameTime > 0 {
-				bestTime = min(bestTime, attempt.GameTime)
-			}
+		if attempt.GameTime > 0 {
+			bestTime = min(bestTime, attempt.GameTime)
 		}
 		playTime0 := max(attempt.RealTime, attempt.GameTime)
 		if attempt.Started != "" && attempt.Ended != "" {
