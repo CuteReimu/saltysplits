@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Livesplit 片段文件分析工具</title>
+    <link rel="stylesheet" href="http://127.0.0.1:12334/x/static/index.css" />
+    <script src="http://127.0.0.1:12334/x/static/vue.global.prod.js"></script>
+    <script src="http://127.0.0.1:12334/x/static/index.full.min.js"></script>
+    <script src="http://127.0.0.1:12334/x/static/axios.min.js"></script>
+    <script src="http://127.0.0.1:12334/x/static/chart.umd.min.js"></script>
+</head>
+
+<body>
+<div id="app" style="display: flex; flex-direction: column;">
+    <el-text><strong style="font-size:44px;">
+        {{data.GameName}} /
+        <span style="color: rgb(118, 166, 191);">{{data.CategoryName}}</span>
+    </strong></el-text>
+    <el-row style="width: 60%; align-self: center; margin-top: 20px;">
+        <el-col :span="5"><el-statistic title="最佳纪录" :value="summary.BestTime"></el-statistic></el-col>
+        <el-col :span="5"><el-statistic title="SOB" :value="summary.Sob"></el-statistic></el-col>
+        <el-col :span="5"><el-statistic title="可节约时间" :value="summary.PossibleTimesave"></el-statistic></el-col>
+        <el-col :span="5"><el-statistic title="尝试次数" :value="summary.Attempts"></el-statistic></el-col>
+        <el-col :span="4"><el-statistic title="总游戏时长" :value="summary.Playtime"></el-statistic></el-col>
+    </el-row>
+
+    <!-- Chart container -->
+    <div style="width: 60%; align-self: center; margin-top: 20px;">
+        <el-tabs v-model="totalTimeType">
+            <el-tab-pane label="Real Time" name="RealTime" style="height: 100%;">
+                <el-card shadow="never">
+                    <el-row>
+                        <el-col :span="12">
+                            <div style="height: 360px; align-self: center; margin: 20px;">
+                                <canvas id="totalTimeRealTime"></canvas>
+                            </div>
+                        </el-col>
+                        <el-col :span="12">
+                            <div style="height: 360px; align-self: center; margin: 20px;">
+                                <canvas id="resetRealTime"></canvas>
+                            </div>
+                        </el-col>
+                    </el-row>
+                </el-card>
+            </el-tab-pane>
+            <el-tab-pane label="Game Time" name="GameTime">
+                <el-card shadow="never">
+                    <el-row>
+                        <el-col :span="12">
+                            <div style="height: 360px; align-self: center; margin: 20px;">
+                                <canvas id="totalTimeGameTime"></canvas>
+                            </div>
+                        </el-col>
+                        <el-col :span="12">
+                            <div style="height: 360px; align-self: center; margin: 20px;">
+                                <canvas id="resetGameTime"></canvas>
+                            </div>
+                        </el-col>
+                    </el-row>
+                </el-card>
+            </el-tab-pane>
+        </el-tabs>
+    </div>
+
+    <div style="width: 60%; align-self: center; margin-top: 20px;">
+        <el-text style="align-self: start;"><strong style="font-size:28px;">
+            速通分析
+        </strong></el-text>
+        <el-divider style="margin-top: 10px;"></el-divider>
+    </div>
+
+    <div style="width: 60%; align-self: center;">
+        <el-card shadow="never">
+            <div style="align-self: center;">
+                <canvas id="runBreakdownData" style="width:100%; display:block;"></canvas>
+            </div>
+        </el-card>
+    </div>
+
+    <div style="width: 60%; align-self: center; margin-top: 20px;">
+        <el-text style="align-self: start;"><strong style="font-size:28px;">
+            分段分析
+        </strong></el-text>
+        <el-divider style="margin-top: 10px;"></el-divider>
+    </div>
+
+    <div style="width: 60%; align-self: center;">
+        <el-select v-model="selectedSegment" @change="onSelectSegment">
+            <el-option
+                v-for="item in segmentOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+            />
+        </el-select>
+        <el-card shadow="never" style="margin-top: 20px; margin-bottom: 20px;">
+            <div style="align-self: center; height: 380px; margin-top: 20px;">
+                <canvas id="segmentData" style="width:100%; display:block;"></canvas>
+            </div>
+        </el-card>
+        <el-card shadow="never" style="margin-bottom: 100px;">
+            <el-row style="align-self: center;">
+                <el-col :span="5"><el-statistic title="最快用时" :value="segmentDetailData.Min"></el-statistic></el-col>
+                <el-col :span="5"><el-statistic title="最慢用时" :value="segmentDetailData.Max"></el-statistic></el-col>
+                <el-col :span="5"><el-statistic title="平均用时" :value="segmentDetailData.Average"></el-statistic></el-col>
+                <el-col :span="5"><el-statistic title="用时中位数" :value="segmentDetailData.Median"></el-statistic></el-col>
+                <el-col :span="4"><el-statistic title="用时标准差" :value="segmentDetailData.StandardDeviation+'秒'"></el-statistic></el-col>
+            </el-row>
+        </el-card>
+    </div>
+</div>
+
+<script>
+    const { createApp } = Vue;
+    const app = createApp({
+        data() {
+            return {
+                data: {},
+                summary: {},
+                totalTimeType: "GameTime",
+                segmentOptions: [],
+                selectedSegment: "",
+                segmentDetailData: {},
+                segmentDataChart: null,
+            };
+        },
+        setup() {
+            return {};
+        },
+        mounted() {
+            // Load main data and build chart from segments
+            axios.get('/data')
+                .then(response => {
+                    this.data = response.data;
+                })
+                .catch(error => {
+                    console.log(error);
+                });
+            axios.get('/summary')
+                .then(response => {
+                    this.summary = response.data;
+                })
+                .catch(error => {
+                    console.log(error);
+                });
+            axios.get('/totalData')
+                .then(response => {
+                    this.createTotalRunData(document.getElementById('totalTimeRealTime'), response.data.realTime);
+                    this.createTotalRunData(document.getElementById('totalTimeGameTime'), response.data.gameTime);
+                })
+                .catch(error => {
+                    console.log(error);
+                });
+            axios.get('/reset')
+                .then(response => {
+                    this.createResetData(document.getElementById('resetRealTime'), response.data.realTime);
+                    this.createResetData(document.getElementById('resetGameTime'), response.data.gameTime);
+                })
+                .catch(error => {
+                    console.log(error);
+                });
+            axios.get('/breakdown')
+                .then(response => {
+                    const rows = Array.isArray(response.data.segments) ? response.data.segments.length : 0;
+                    const minHeight = 300;
+                    const rowHeight = 24; // 每行像素高度，可根据需要调整
+                    const h = Math.max(minHeight, rows * rowHeight);
+                    const canvas = document.getElementById('runBreakdownData');
+                    if (canvas) {
+                        canvas.style.height = `${h}px`;
+                    }
+                    this.createRunBreakdownData(document.getElementById('runBreakdownData'), response.data);
+                    this.segmentOptions = response.data.segments.map((seg, index) => ({
+                        label: seg,
+                        value: index,
+                    }));
+                    this.selectedSegment = 0;
+                    this.onSelectSegment(0);
+                })
+                .catch(error => {
+                    console.log(error);
+                });
+        },
+        methods: {
+            onSelectSegment(value) {
+                axios.get('/segment?index=' + value)
+                    .then(response => {
+                        this.segmentDetailData = {
+                            Min : response.data.Min,
+                            Max : response.data.Max,
+                            Average : response.data.Average,
+                            Median : response.data.Median,
+                            StandardDeviation : response.data.StandardDeviation,
+                        };
+                        this.createSegmentData(document.getElementById('segmentData'), response.data.Details);
+                    })
+                    .catch(error => {
+                        console.log(error);
+                    });
+            },
+
+            createTotalRunData(ctx, data) {
+                const labels = data.map(item => String(item.id));
+                const values = data.map(item => this.durationToSec(item.Time));
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: '总耗时',
+                            data: values,
+                            tension: 0.4,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                title: {
+                                    display: true,
+                                    text: '尝试次数',
+                                },
+                                beginsAtZero: true,
+                                grid: {
+                                    display: false
+                                },
+                            },
+                            y: {
+                                type: 'linear',
+                                title: {
+                                    display: true,
+                                    text: '总耗时',
+                                },
+                                ticks: {
+                                    callback: (context) => {
+                                        return this.formatSecToHuman(context);
+                                    }
+                                },
+                                border:{
+                                    display: false
+                                },
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        return this.formatSecToHuman(context.parsed.y);
+                                    }
+                                }
+                            },
+                            legend: {
+                                display: false,
+                            },
+                            title: {
+                                display: true,
+                                text: '随时间推移的速通时长变化',
+                            }
+                        }
+                    }
+                });
+            },
+
+            createResetData(ctx, data) {
+                const labels = data.map(item => item.Segment);
+                const values = data.map(item => item.Count);
+
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: '重开次数',
+                            data: values,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                            },
+                            title: {
+                                display: true,
+                                text: '各分段重开次数',
+                            }
+                        }
+                    }
+                });
+            },
+
+            createRunBreakdownData(ctx, data) {
+                const labels = data.segments;
+                const datasets = [];
+                for (let i = 0; i < data.data.length; i++) {
+                    datasets.push({
+                        label: String(data.data[i].id),
+                        data: data.data[i].Details,
+                        tension: 0.4,
+                    })
+                }
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets,
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                title: {
+                                    display: true,
+                                    text: '用时',
+                                },
+                                beginsAtZero: true,
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    callback: (context) => {
+                                        return this.formatSecToHuman(context);
+                                    }
+                                },
+                            },
+                            y: {
+                                type: 'category',
+                                border:{
+                                    display: false
+                                },
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        return this.formatSecToHuman(context.parsed.x);
+                                    }
+                                }
+                            },
+                            legend: {
+                                position: 'top',
+                                title: {
+                                    display: true,
+                                    text: '第 N 次尝试',
+                                }
+                            },
+                        }
+                    }
+                });
+            },
+
+            createSegmentData(cctx, data) {
+                const labels = data.map(item => item.id);
+                const values = data.map(item => item.Time);
+                console.log(labels);
+                console.log(values);
+                if (this.segmentDataChart) {
+                    this.segmentDataChart.destroy();
+                }
+                this.segmentDataChart = new Chart(cctx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: '分段用时',
+                            data: values,
+                            tension: 0.4,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                title: {
+                                    display: true,
+                                    text: '尝试次数',
+                                },
+                                beginsAtZero: true,
+                                grid: {
+                                    display: false
+                                },
+                            },
+                            y: {
+                                type: 'linear',
+                                title: {
+                                    display: true,
+                                    text: '分段用时',
+                                },
+                                border:{
+                                    display: false
+                                },
+                                ticks: {
+                                    callback: (context) => {
+                                        return this.formatSecToHuman(context);
+                                    }
+                                },
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => {
+                                        return this.formatSecToHuman(context.parsed.y);
+                                    }
+                                }
+                            },
+                            legend: {
+                                display: false,
+                            },
+                        }
+                    }
+                });
+            },
+
+            // Convert duration string "HH:MM:SS" to seconds number
+            durationToSec(s) {
+                if (!s) return 0;
+                if (typeof s === 'number') return s;
+                const parts = String(s).trim().split(':');
+                if (parts.length !== 3) return 0;
+                const h = parseInt(parts[0], 10) || 0;
+                const m = parseInt(parts[1], 10) || 0;
+                const secParts = parts[2].split('.');
+                const sec = parseInt(secParts[0], 10) || 0;
+                return h * 3600 + m * 60 + sec;
+            },
+
+            // Format seconds back to human readable string
+            formatSecToHuman(sec) {
+                if (sec == null || isNaN(sec)) return '';
+                const totalSec = Math.floor(sec);
+                const h = Math.floor(totalSec / 3600);
+                const m = Math.floor((totalSec % 3600) / 60);
+                const s = totalSec % 60;
+                return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            }
+        }
+    });
+    app.use(ElementPlus);
+    app.mount('#app');
+</script>
+</body>
+</html>
