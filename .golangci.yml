@@ -1,0 +1,46 @@
+version: "2"
+linters:
+  default: all
+  disable:
+    - wsl
+    - depguard
+    - durationcheck
+    - err113
+    - exhaustruct
+    - forbidigo
+    - gochecknoglobals
+    - gosmopolitan
+    - mnd
+    - musttag
+    - noctx
+    - noinlineerr
+    - unparam
+    - varnamelen
+    - wrapcheck
+  settings:
+    cyclop:
+      max-complexity: 15
+    gocognit:
+      min-complexity: 45
+    gosec:
+      excludes:
+        - G304
+    recvcheck:
+      disable-builtin: true
+      exclusions:
+        - "*.UnmarshalXML"
+    revive:
+      rules:
+        - name: package-comments
+          disabled: true
+        - name: var-naming
+          disabled: true
+    nlreturn:
+      block-size: 2
+    wsl_v5:
+      allow-whole-block: true
+      branch-max-lines: 4
+      case-max-lines: 2
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

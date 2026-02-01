@@ -1,0 +1,43 @@
+name: Go
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: 'stable'
+
+    - name: Create Fake Embed Files
+      run: |
+        mkdir -p static
+        touch static/axios.min.js
+        touch static/chart.umd.min.js
+        touch static/index.css
+        touch static/index.full.min.js
+        touch static/vue.global.prod.js
+
+    - name: Set Go Env
+      run: |
+        go env -w GOOS=windows
+        go env -w GOARCH=amd64
+
+    - run: go mod download
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v9
+      with:
+        version: latest
+
+    - name: Build
+      run: go build -v ./...

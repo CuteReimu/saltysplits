@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"runtime/debug"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -14,13 +15,17 @@ func main() {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println(r)
+			fmt.Println(string(debug.Stack()))
 			fmt.Println("报错了！按回车键退出...")
+
 			_, _ = fmt.Scanln()
 		}
 	}()
+
 	flag.Parse()
 	analysis()
 	initWebUi()
+
 	select {}
 }
 
@@ -33,6 +38,7 @@ var (
 
 func initWebUi() {
 	gin.SetMode(gin.ReleaseMode)
+
 	g := gin.New()
 	g.GET("/", func(c *gin.Context) {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", htmlIndex)
@@ -63,15 +69,18 @@ func initWebUi() {
 	})
 	g.GET("/segment", func(c *gin.Context) {
 		index := c.Query("index")
+
 		i, err := strconv.Atoi(index)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid index"})
 			return
 		}
+
 		result, err := getSegment(i)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		}
+
 		c.JSON(http.StatusOK, result)
 	})
 	g.StaticFS("/x/", http.FS(htmlFiles))
