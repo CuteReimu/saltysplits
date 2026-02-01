@@ -17,6 +17,8 @@ import (
 var (
 	run *xmlRun
 
+	startAttemptId int
+
 	summary *SummaryData
 
 	realTimeTotalData []TotalData
@@ -64,6 +66,12 @@ func analysis() {
 		panic(err)
 	}
 
+	if len(run.Attempt) > 200 {
+		fmt.Printf("该文件包含 %d 次尝试，你可以指定一个起始尝试ID以缩小分析范围: \n", len(run.Attempt))
+		_, _ = fmt.Scanln(&startAttemptId)
+		fmt.Printf("仅分析ID为 %d 及之后的尝试...\n", startAttemptId)
+	}
+
 	analysisInfo()
 	analysisTotal()
 	analysisRun()
@@ -83,6 +91,9 @@ func analysisInfo() {
 	var playTime Duration
 	bestTime := Duration(math.MaxInt64)
 	for _, attempt := range run.Attempt {
+		if attempt.Id < startAttemptId {
+			continue
+		}
 		attempts[attempt.Id] = attempt
 		if attempt.GameTime > 0 {
 			bestTime = min(bestTime, attempt.GameTime)
@@ -115,7 +126,7 @@ func analysisInfo() {
 		BestTime:         bestTime,
 		Sob:              sob,
 		PossibleTimesave: bestTime - sob,
-		Attempts:         run.AttemptCount,
+		Attempts:         run.AttemptCount - startAttemptId,
 		Playtime:         playTime,
 	}
 }
@@ -137,6 +148,9 @@ func analysisTotal() {
 	gameResetCache := make(map[int]int) // attemptId -> 最后分段id
 	for i, seg := range run.Segments {
 		for _, history := range seg.SegmentHistory {
+			if history.Id < startAttemptId {
+				continue
+			}
 			if history.RealTime > 0 {
 				realResetCache[history.Id] = i + 1
 			}
@@ -147,11 +161,14 @@ func analysisTotal() {
 	}
 	for i, seg := range run.Segments {
 		var realCount, gameCount int
-		for j := range run.Attempt {
-			if realResetCache[j+1] == i {
+		for _, attempt := range run.Attempt {
+			if attempt.Id < startAttemptId {
+				continue
+			}
+			if realResetCache[attempt.Id] == i {
 				realCount++
 			}
-			if gameResetCache[j+1] == i {
+			if gameResetCache[attempt.Id] == i {
 				gameCount++
 			}
 		}
@@ -171,6 +188,9 @@ func analysisRun() {
 	}
 	var m []attemptTime
 	for _, attempt := range run.Attempt {
+		if attempt.Id < startAttemptId {
+			continue
+		}
 		if attempt.GameTime > 0 {
 			m = append(m, attemptTime{attempt.GameTime, attempt.Id})
 		}
@@ -219,6 +239,9 @@ func getSegment(index int) (*SegmentData, error) {
 	var times []Duration
 	var total Duration
 	for _, history := range seq.SegmentHistory {
+		if history.Id < startAttemptId {
+			continue
+		}
 		t := history.GameTime
 		if t == 0 {
 			continue
