@@ -27,40 +27,24 @@
 
     <!-- Chart container -->
     <div style="width: 60%; align-self: center; margin-top: 20px;">
-        <el-tabs v-model="totalTimeType">
-            <el-tab-pane label="Real Time" name="RealTime" style="height: 100%;">
-                <el-card shadow="never">
-                    <el-row>
-                        <el-col :span="12">
-                            <div style="height: 360px; align-self: center; margin: 20px;">
-                                <canvas id="totalTimeRealTime"></canvas>
-                            </div>
-                        </el-col>
-                        <el-col :span="12">
-                            <div style="height: 360px; align-self: center; margin: 20px;">
-                                <canvas id="resetRealTime"></canvas>
-                            </div>
-                        </el-col>
-                    </el-row>
-                </el-card>
-            </el-tab-pane>
-            <el-tab-pane label="Game Time" name="GameTime">
-                <el-card shadow="never">
-                    <el-row>
-                        <el-col :span="12">
-                            <div style="height: 360px; align-self: center; margin: 20px;">
-                                <canvas id="totalTimeGameTime"></canvas>
-                            </div>
-                        </el-col>
-                        <el-col :span="12">
-                            <div style="height: 360px; align-self: center; margin: 20px;">
-                                <canvas id="resetGameTime"></canvas>
-                            </div>
-                        </el-col>
-                    </el-row>
-                </el-card>
-            </el-tab-pane>
+        <el-tabs v-model="totalTimeType" @tab-change="onTabChange">
+            <el-tab-pane label="Real Time" name="realTime"></el-tab-pane>
+            <el-tab-pane label="Game Time" name="gameTime"></el-tab-pane>
         </el-tabs>
+        <el-card>
+            <el-row>
+                <el-col :span="12">
+                    <div style="height: 360px; align-self: center; margin: 20px;">
+                        <canvas id="totalTimeChart"></canvas>
+                    </div>
+                </el-col>
+                <el-col :span="12">
+                    <div style="height: 360px; align-self: center; margin: 20px;">
+                        <canvas id="resetChart"></canvas>
+                    </div>
+                </el-col>
+            </el-row>
+        </el-card>
     </div>
 
     <div style="width: 60%; align-self: center; margin-top: 20px;">
@@ -71,7 +55,7 @@
     </div>
 
     <div style="width: 60%; align-self: center;">
-        <el-card shadow="never">
+        <el-card>
             <div style="align-self: center;">
                 <canvas id="runBreakdownData" style="width:100%; display:block;"></canvas>
             </div>
@@ -94,12 +78,12 @@
                 :value="item.value"
             />
         </el-select>
-        <el-card shadow="never" style="margin-top: 20px; margin-bottom: 20px;">
+        <el-card style="margin-top: 20px; margin-bottom: 20px;">
             <div style="align-self: center; height: 380px; margin-top: 20px;">
                 <canvas id="segmentData" style="width:100%; display:block;"></canvas>
             </div>
         </el-card>
-        <el-card shadow="never" style="margin-bottom: 100px;">
+        <el-card style="margin-bottom: 100px;">
             <el-row style="align-self: center;">
                 <el-col :span="5"><el-statistic title="最快用时" :value="segmentDetailData.Min"></el-statistic></el-col>
                 <el-col :span="5"><el-statistic title="最慢用时" :value="segmentDetailData.Max"></el-statistic></el-col>
@@ -112,23 +96,29 @@
 </div>
 
 <script>
+    const { ElNotification } = ElementPlus;
     const { createApp } = Vue;
     const app = createApp({
         data() {
             return {
                 data: {},
                 summary: {},
-                totalTimeType: "GameTime",
+                totalTimeType: "gameTime",
                 segmentOptions: [],
                 selectedSegment: "",
                 segmentDetailData: {},
-                segmentDataChart: null,
             };
         },
         setup() {
             return {};
         },
         mounted() {
+            ElNotification({
+                dangerouslyUseHTMLString: true,
+                message: '代码已在 Github 上开源：<a href="https://github.com/CuteReimu/saltysplits" rel="noopener noreferrer" target="_blank">https://github.com/CuteReimu/saltysplits</a>',
+                position: 'bottom-right',
+                duration: 0,
+            })
             // Load main data and build chart from segments
             axios.get('/data')
                 .then(response => {
@@ -146,16 +136,16 @@
                 });
             axios.get('/totalData')
                 .then(response => {
-                    this.createTotalRunData(document.getElementById('totalTimeRealTime'), response.data.realTime);
-                    this.createTotalRunData(document.getElementById('totalTimeGameTime'), response.data.gameTime);
+                    this.totalRunData = response.data;
+                    this.createTotalRunData();
                 })
                 .catch(error => {
                     console.log(error);
                 });
             axios.get('/reset')
                 .then(response => {
-                    this.createResetData(document.getElementById('resetRealTime'), response.data.realTime);
-                    this.createResetData(document.getElementById('resetGameTime'), response.data.gameTime);
+                    this.resetData = response.data;
+                    this.createResetData();
                 })
                 .catch(error => {
                     console.log(error);
@@ -200,11 +190,25 @@
                     });
             },
 
-            createTotalRunData(ctx, data) {
+            onTabChange() {
+                this.createTotalRunData();
+                this.createResetData();
+            },
+
+            createTotalRunData() {
+                const data = this.totalRunData[this.totalTimeType];
                 const labels = data.map(item => String(item.id));
                 const values = data.map(item => this.durationToSec(item.Time));
 
-                new Chart(ctx, {
+                if (this.totalRunChart) {
+                    this.totalRunChart.data.labels = labels;
+                    this.totalRunChart.data.datasets[0].data = values;
+                    this.totalRunChart.update();
+                    return
+                }
+
+                const ctx = document.getElementById('totalTimeChart');
+                this.totalRunChart = new Chart(ctx, {
                     type: 'line',
                     data: {
                         labels,
@@ -264,11 +268,20 @@
                 });
             },
 
-            createResetData(ctx, data) {
+            createResetData() {
+                const data = this.resetData[this.totalTimeType];
                 const labels = data.map(item => item.Segment);
                 const values = data.map(item => item.Count);
 
-                new Chart(ctx, {
+                if (this.resetChart) {
+                    this.resetChart.data.labels = labels;
+                    this.resetChart.data.datasets[0].data = values;
+                    this.resetChart.update();
+                    return
+                }
+
+                const ctx = document.getElementById('resetChart');
+                this.resetChart = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
                         labels,
@@ -359,10 +372,11 @@
             createSegmentData(cctx, data) {
                 const labels = data.map(item => item.id);
                 const values = data.map(item => item.Time);
-                console.log(labels);
-                console.log(values);
                 if (this.segmentDataChart) {
-                    this.segmentDataChart.destroy();
+                    this.segmentDataChart.data.labels = labels;
+                    this.segmentDataChart.data.datasets[0].data = values;
+                    this.segmentDataChart.update();
+                    return
                 }
                 this.segmentDataChart = new Chart(cctx, {
                     type: 'line',
