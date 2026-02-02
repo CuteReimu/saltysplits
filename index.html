@@ -27,11 +27,11 @@
 
     <!-- Chart container -->
     <div style="width: 60%; align-self: center; margin-top: 20px;">
-        <el-tabs v-model="totalTimeType" @tab-change="onTabChange">
-            <el-tab-pane label="Real Time" name="realTime"></el-tab-pane>
-            <el-tab-pane label="Game Time" name="gameTime"></el-tab-pane>
-        </el-tabs>
         <el-card>
+            <el-tabs v-model="totalTimeType" @tab-change="onTabChange">
+                <el-tab-pane label="Real Time" name="realTime"></el-tab-pane>
+                <el-tab-pane label="Game Time" name="gameTime"></el-tab-pane>
+            </el-tabs>
             <el-row>
                 <el-col :span="12">
                     <div style="height: 360px; align-self: center; margin: 20px;">
@@ -41,6 +41,15 @@
                 <el-col :span="12">
                     <div style="height: 360px; align-self: center; margin: 20px;">
                         <canvas id="resetChart"></canvas>
+                        <el-tooltip effect="light" content="对于有小分段的lss文件，可以选择按照大分段来统计重开次数" placement="bottom">
+                            <el-switch
+                              v-model="showBigSegment"
+                              active-text="按大分段统计"
+                              inactive-text="按小分段统计"
+                              @change="createResetData"
+                              :disabled="disableShowBigSegment"
+                            ></el-switch>
+                        </el-tooltip>
                     </div>
                 </el-col>
             </el-row>
@@ -103,6 +112,8 @@
             return {
                 data: {},
                 summary: {},
+                disableShowBigSegment: true,
+                showBigSegment: false,
                 totalTimeType: "gameTime",
                 segmentOptions: [],
                 selectedSegment: "",
@@ -145,6 +156,7 @@
             axios.get('/reset')
                 .then(response => {
                     this.resetData = response.data;
+                    this.disableShowBigSegment = response.data.disable
                     this.createResetData();
                 })
                 .catch(error => {
@@ -160,7 +172,7 @@
                     if (canvas) {
                         canvas.style.height = `${h}px`;
                     }
-                    this.createRunBreakdownData(document.getElementById('runBreakdownData'), response.data);
+                    this.createRunBreakdownData(canvas, response.data);
                     this.segmentOptions = response.data.segments.map((seg, index) => ({
                         label: seg,
                         value: index,
@@ -269,7 +281,7 @@
             },
 
             createResetData() {
-                const data = this.resetData[this.totalTimeType];
+                const data = this.resetData[this.showBigSegment ? this.totalTimeType : this.totalTimeType + "Big"];
                 const labels = data.map(item => item.Segment);
                 const values = data.map(item => item.Count);
 
@@ -307,7 +319,7 @@
             },
 
             createRunBreakdownData(ctx, data) {
-                const labels = data.segments;
+                const labels = data.segments.map((seg, index) => index);
                 const datasets = [];
                 for (let i = 0; i < data.data.length; i++) {
                     datasets.push({
@@ -347,13 +359,23 @@
                                 border:{
                                     display: false
                                 },
+                                ticks: {
+                                    callback: (context) => {
+                                        return data.segments[context];
+                                    }
+                                },
                             }
                         },
                         plugins: {
                             tooltip: {
                                 callbacks: {
+                                    title: () => "",
                                     label: (context) => {
-                                        return this.formatSecToHuman(context.parsed.x);
+                                        return [
+                                            '尝试: ' + context.dataset.label,
+                                            '分段: ' + data.segments[context.formattedValue],
+                                            '用时: ' + this.formatSecToHuman(context.parsed.x)
+                                        ];
                                     }
                                 }
                             },
