@@ -18,7 +18,7 @@ import (
 var (
 	run *xmlRun
 
-	startAttemptId = math.MinInt32
+	startAttemptId int
 
 	summary *SummaryData
 
@@ -341,7 +341,7 @@ func getSegment(index int) (*SegmentData, error) {
 
 	var total Duration
 	for _, history := range seq.SegmentHistory {
-		if history.Id < startAttemptId {
+		if _, ok := attempts[history.Id]; !ok || history.Id < startAttemptId {
 			continue
 		}
 
@@ -359,6 +359,10 @@ func getSegment(index int) (*SegmentData, error) {
 		ret.Min = min(ret.Min, t)
 		ret.Max = max(ret.Max, t)
 	}
+
+	slices.SortFunc(ret.Details, func(a, b SegmentDetailData) int {
+		return a.Id - b.Id
+	})
 
 	ret.Average = Duration(math.Round(float64(total) / float64(len(times))))
 	slices.Sort(times)
