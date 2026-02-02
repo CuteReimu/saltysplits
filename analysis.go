@@ -171,11 +171,11 @@ func analysisTotalData() {
 		}
 
 		if attempt.RealTime > 0 {
-			realTimeTotalData = append(realTimeTotalData, TotalData{attempt.Id, attempt.RealTime})
+			realTimeTotalData = append(realTimeTotalData, TotalData{attempt.Id, time.Duration(attempt.RealTime).Seconds()})
 		}
 
 		if attempt.GameTime > 0 {
-			gameTimeTotalData = append(gameTimeTotalData, TotalData{attempt.Id, attempt.GameTime})
+			gameTimeTotalData = append(gameTimeTotalData, TotalData{attempt.Id, time.Duration(attempt.GameTime).Seconds()})
 		}
 	}
 
@@ -214,11 +214,11 @@ func analysisResetData() {
 		realCount, gameCount = realCount+realCount0, gameCount+gameCount0
 
 		if realCount0 > 0 {
-			realTimeResetBig = append(realTimeResetBig, ResetData{i, seg.Name, realCount0})
+			realTimeResetBig = append(realTimeResetBig, ResetData{seg.Name, realCount0})
 		}
 
 		if gameCount0 > 0 {
-			gameTimeResetBig = append(gameTimeResetBig, ResetData{i, seg.Name, gameCount0})
+			gameTimeResetBig = append(gameTimeResetBig, ResetData{seg.Name, gameCount0})
 		}
 
 		if strings.HasPrefix(seg.Name, "-") && i < len(run.Segments)-1 {
@@ -227,11 +227,11 @@ func analysisResetData() {
 		}
 
 		if realCount > 0 {
-			realTimeReset = append(realTimeReset, ResetData{i, seg.Name, realCount})
+			realTimeReset = append(realTimeReset, ResetData{seg.Name, realCount})
 		}
 
 		if gameCount > 0 {
-			gameTimeReset = append(gameTimeReset, ResetData{i, seg.Name, gameCount})
+			gameTimeReset = append(gameTimeReset, ResetData{seg.Name, gameCount})
 		}
 
 		realCount, gameCount = 0, 0
@@ -263,9 +263,10 @@ func getResetCount(realResetCache, gameResetCache map[int]int, segmentIndex int)
 }
 
 func sortResetData(data *[]ResetData) {
+	var otherCount int
 	for {
-		if len(*data) <= 15 {
-			return
+		if len(*data) < 14 {
+			break
 		}
 
 		v := slices.MinFunc(*data, func(a, b ResetData) int {
@@ -274,7 +275,17 @@ func sortResetData(data *[]ResetData) {
 		minValue := v.Count
 
 		*data = slices.DeleteFunc(*data, func(r ResetData) bool {
-			return r.Count <= minValue
+			if r.Count <= minValue {
+				otherCount += r.Count
+				return true
+			}
+			return false
+		})
+	}
+	if otherCount > 0 {
+		*data = append(*data, ResetData{
+			Segment: "其它",
+			Count:   otherCount,
 		})
 	}
 }
@@ -324,7 +335,7 @@ func analysisRun() {
 				acc += history.GameTime
 				data.Details = append(data.Details, RunBreakdownDetailData{
 					Segment: i,
-					Time:    int(time.Duration(acc).Seconds()),
+					Time:    time.Duration(acc).Seconds(),
 				})
 			}
 		}
@@ -361,7 +372,7 @@ func getSegment(index int) (*SegmentData, error) {
 		total += t
 		ret.Details = append(ret.Details, SegmentDetailData{
 			Id:   history.Id,
-			Time: int(time.Duration(t).Seconds()),
+			Time: time.Duration(t).Seconds(),
 		})
 		ret.Min = min(ret.Min, t)
 		ret.Max = max(ret.Max, t)
@@ -401,11 +412,10 @@ type SummaryData struct {
 
 type TotalData struct {
 	Id   int `json:"id"`
-	Time Duration
+	Time float64
 }
 
 type ResetData struct {
-	id      int
 	Segment string
 	Count   int
 }
@@ -416,8 +426,8 @@ type RunBreakdownData struct {
 }
 
 type RunBreakdownDetailData struct {
-	Segment int `json:"y"`
-	Time    int `json:"x"`
+	Segment int     `json:"y"`
+	Time    float64 `json:"x"`
 }
 
 type SegmentData struct {
@@ -431,5 +441,5 @@ type SegmentData struct {
 
 type SegmentDetailData struct {
 	Id   int `json:"id"`
-	Time int
+	Time float64
 }

@@ -87,6 +87,17 @@ func (duration Duration) MarshalJSON() ([]byte, error) {
 	d -= m * time.Minute
 
 	s := d / time.Second
+	d -= s * time.Second
+
+	if h == 0 && m < 10 {
+		ms := d / time.Millisecond / 10
+
+		if neg {
+			return fmt.Appendf(nil, `"-%d:%02d.%02d"`, m, s, ms), nil
+		}
+
+		return fmt.Appendf(nil, `"%d:%02d.%02d"`, m, s, ms), nil
+	}
 
 	if neg {
 		return fmt.Appendf(nil, `"-%02d:%02d:%02d"`, h, m, s), nil

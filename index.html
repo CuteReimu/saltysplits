@@ -210,7 +210,7 @@
             createTotalRunData() {
                 const data = this.totalRunData[this.totalTimeType];
                 const labels = data.map(item => String(item.id));
-                const values = data.map(item => this.durationToSec(item.Time));
+                const values = data.map(item => item.Time);
 
                 if (this.totalRunChart) {
                     this.totalRunChart.data.labels = labels;
@@ -268,7 +268,8 @@
                             tooltip: {
                                 callbacks: {
                                     label: (context) => {
-                                        return this.formatSecToHuman(context.parsed.y);
+                                        console.log(context);
+                                        return this.formatSecToHuman2(context.parsed.y);
                                     }
                                 }
                             },
@@ -379,7 +380,7 @@
                                         return [
                                             '尝试: ' + context.dataset.label,
                                             '分段: ' + data.segments[context.formattedValue],
-                                            '用时: ' + this.formatSecToHuman(context.parsed.x)
+                                            '用时: ' + this.formatSecToHuman2(context.parsed.x)
                                         ];
                                     }
                                 }
@@ -442,9 +443,9 @@
                                     display: false
                                 },
                                 ticks: {
-                                    precision: 0,
+                                    precision: 2,
                                     callback: (context) => {
-                                        return this.formatSecToHuman(context);
+                                        return this.formatSecToHuman2(context);
                                     }
                                 },
                             }
@@ -453,7 +454,7 @@
                             tooltip: {
                                 callbacks: {
                                     label: (context) => {
-                                        return this.formatSecToHuman(context.parsed.y);
+                                        return this.formatSecToHuman2(context.parsed.y);
                                     }
                                 }
                             },
@@ -465,26 +466,33 @@
                 });
             },
 
-            // Convert duration string "HH:MM:SS" to seconds number
-            durationToSec(s) {
-                if (!s) return 0;
-                if (typeof s === 'number') return s;
-                const parts = String(s).trim().split(':');
-                if (parts.length !== 3) return 0;
-                const h = parseInt(parts[0], 10) || 0;
-                const m = parseInt(parts[1], 10) || 0;
-                const secParts = parts[2].split('.');
-                const sec = parseInt(secParts[0], 10) || 0;
-                return h * 3600 + m * 60 + sec;
-            },
-
-            // Format seconds back to human readable string
+            // Format seconds back to human readable string hh:mm:ss
             formatSecToHuman(sec) {
                 if (sec == null || isNaN(sec)) return '';
                 const totalSec = Math.floor(sec);
                 const h = Math.floor(totalSec / 3600);
                 const m = Math.floor((totalSec % 3600) / 60);
                 const s = totalSec % 60;
+                return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            },
+
+            // Format seconds back to human readable string mm:ss.xx
+            formatSecToHuman2(sec) {
+                if (sec == null || isNaN(sec)) return '';
+                let totalSec = sec;
+                const h = Math.floor(totalSec / 3600);
+                totalSec -= h * 3600;
+                const m = Math.floor(totalSec / 60);
+                totalSec -= m * 60;
+                const s = Math.floor(totalSec);
+                totalSec -= s;
+                if (h === 0 && m < 10) {
+                    if (totalSec !== 0) {
+                        const fractional = (totalSec * 100).toFixed(0).padStart(2, '0');
+                        return `${m}:${String(s).padStart(2, '0')}.${fractional}`;
+                    }
+                    return `${m}:${String(s).padStart(2,'0')}`;
+                }
                 return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
             }
         }
