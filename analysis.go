@@ -178,6 +178,13 @@ func analysisTotalData() {
 			gameTimeTotalData = append(gameTimeTotalData, TotalData{attempt.Id, attempt.GameTime})
 		}
 	}
+
+	slices.SortFunc(realTimeTotalData, func(a, b TotalData) int {
+		return a.Id - b.Id
+	})
+	slices.SortFunc(gameTimeTotalData, func(a, b TotalData) int {
+		return a.Id - b.Id
+	})
 }
 
 func analysisResetData() {
@@ -341,7 +348,7 @@ func getSegment(index int) (*SegmentData, error) {
 
 	var total Duration
 	for _, history := range seq.SegmentHistory {
-		if _, ok := attempts[history.Id]; !ok || history.Id < startAttemptId {
+		if history.Id < startAttemptId {
 			continue
 		}
 
