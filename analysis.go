@@ -182,8 +182,8 @@ func analysisTotalData() {
 
 func analysisResetData() {
 	var (
-		realResetCache = make(map[int]int) // attemptId -> 最后分段id
-		gameResetCache = make(map[int]int) // attemptId -> 最后分段id
+		realResetCache = make(map[int]int) // attemptId -> 重置分段index
+		gameResetCache = make(map[int]int) // attemptId -> 重置分段index
 	)
 	for i, seg := range run.Segments {
 		for _, history := range seg.SegmentHistory {
@@ -192,33 +192,19 @@ func analysisResetData() {
 			}
 
 			if history.RealTime > 0 {
-				realResetCache[history.Id] = i + 1
+				realResetCache[history.Id] = i + 1 // 为什么是 i + 1 呢？因为重置发生在该分段之后，说明是下一个分段重置的，应该统计为下一个分段
 			}
 
 			if history.GameTime > 0 {
-				gameResetCache[history.Id] = i + 1
+				gameResetCache[history.Id] = i + 1 // 为什么是 i + 1 呢？因为重置发生在该分段之后，说明是下一个分段重置的，应该统计为下一个分段
 			}
 		}
 	}
 
 	var realCount, gameCount int
 	for i, seg := range run.Segments {
-		var realCount0, gameCount0 int
-		for _, attempt := range run.Attempt {
-			if attempt.Id < startAttemptId {
-				continue
-			}
-
-			if realResetCache[attempt.Id] == i {
-				realCount++
-				realCount0++
-			}
-
-			if gameResetCache[attempt.Id] == i {
-				gameCount++
-				gameCount0++
-			}
-		}
+		realCount0, gameCount0 := getResetCount(realResetCache, gameResetCache, i)
+		realCount, gameCount = realCount+realCount0, gameCount+gameCount0
 
 		if realCount0 > 0 {
 			realTimeResetBig = append(realTimeResetBig, ResetData{i, seg.Name, realCount0})
@@ -244,27 +230,46 @@ func analysisResetData() {
 		realCount, gameCount = 0, 0
 	}
 
-	sortResetData := func(data *[]ResetData) {
-		for {
-			if len(*data) <= 15 {
-				return
-			}
-
-			v := slices.MinFunc(*data, func(a, b ResetData) int {
-				return a.Count - b.Count
-			})
-			minValue := v.Count
-
-			*data = slices.DeleteFunc(*data, func(r ResetData) bool {
-				return r.Count <= minValue
-			})
-		}
-	}
-
 	sortResetData(&realTimeReset)
 	sortResetData(&gameTimeReset)
 	sortResetData(&realTimeResetBig)
 	sortResetData(&gameTimeResetBig)
+}
+
+func getResetCount(realResetCache, gameResetCache map[int]int, segmentIndex int) (int, int) {
+	var realCount, gameCount int
+	for _, attempt := range run.Attempt {
+		if attempt.Id < startAttemptId {
+			continue
+		}
+
+		if realResetCache[attempt.Id] == segmentIndex {
+			realCount++
+		}
+
+		if gameResetCache[attempt.Id] == segmentIndex {
+			gameCount++
+		}
+	}
+
+	return realCount, gameCount
+}
+
+func sortResetData(data *[]ResetData) {
+	for {
+		if len(*data) <= 15 {
+			return
+		}
+
+		v := slices.MinFunc(*data, func(a, b ResetData) int {
+			return a.Count - b.Count
+		})
+		minValue := v.Count
+
+		*data = slices.DeleteFunc(*data, func(r ResetData) bool {
+			return r.Count <= minValue
+		})
+	}
 }
 
 func analysisRun() {
