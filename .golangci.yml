@@ -10,7 +10,6 @@ linters:
     - forbidigo
     - gochecknoglobals
     - gosmopolitan
-    - mnd
     - musttag
     - noctx
     - noinlineerr

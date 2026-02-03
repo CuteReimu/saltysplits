@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Livesplit 片段文件分析工具</title>
-    <link rel="stylesheet" href="http://127.0.0.1:12334/x/static/index.css" />
-    <script src="http://127.0.0.1:12334/x/static/vue.global.prod.js"></script>
-    <script src="http://127.0.0.1:12334/x/static/index.full.min.js"></script>
-    <script src="http://127.0.0.1:12334/x/static/axios.min.js"></script>
-    <script src="http://127.0.0.1:12334/x/static/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="/x/static/index.css" />
+    <script src="/x/static/vue.global.prod.js"></script>
+    <script src="/x/static/index.full.min.js"></script>
+    <script src="/x/static/axios.min.js"></script>
+    <script src="/x/static/chart.umd.min.js"></script>
 </head>
 
 <body>
@@ -286,7 +286,7 @@
             },
 
             createResetData() {
-                const data = this.resetData[this.showBigSegment ? this.totalTimeType : this.totalTimeType + "Big"];
+                const data = this.resetData[this.showBigSegment ? this.totalTimeType + "Big" : this.totalTimeType];
                 const labels = data.map(item => item.Segment);
                 const values = data.map(item => item.Count);
 

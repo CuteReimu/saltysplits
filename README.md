@@ -169,4 +169,4 @@ golangci-lint run --timeout=5m
 
 ## 许可证
 
-请查看 LICENSE 文件了解详情。
+本项目基于 [MIT License](LICENSE) 开源。
