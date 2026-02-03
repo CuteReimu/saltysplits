@@ -74,7 +74,7 @@ saltysplits/
 
 ### 前置要求
 
-- Go 1.24 或更高版本
+- Go 1.25 或更高版本
 - Linux/Mac 需要有 `curl` 命令，Windows 可使用 PowerShell
 
 ### 步骤
