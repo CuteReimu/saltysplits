@@ -264,11 +264,7 @@ func getResetCount(realResetCache, gameResetCache map[int]int, segmentIndex int)
 
 func sortResetData(data *[]ResetData) {
 	var otherCount int
-	for {
-		if len(*data) < 14 {
-			break
-		}
-
+	for len(*data) >= 14 {
 		v := slices.MinFunc(*data, func(a, b ResetData) int {
 			return a.Count - b.Count
 		})
@@ -279,9 +275,11 @@ func sortResetData(data *[]ResetData) {
 				otherCount += r.Count
 				return true
 			}
+
 			return false
 		})
 	}
+
 	if otherCount > 0 {
 		*data = append(*data, ResetData{
 			Segment: "其它",
