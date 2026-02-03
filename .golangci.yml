@@ -24,6 +24,12 @@ linters:
     gosec:
       excludes:
         - G304
+    mnd:
+      ignored-numbers:
+        - '2'
+        - '3'
+        - '9'
+        - '10'
     recvcheck:
       disable-builtin: true
       exclusions:

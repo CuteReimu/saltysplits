@@ -22,10 +22,6 @@ const (
 	maxResetSegments = 14
 	// topRunsCount 是速通分析中展示的最佳速通次数.
 	topRunsCount = 5
-	// medianDivisor 用于计算中位数时的除数.
-	medianDivisor = 2
-	// variancePower 用于计算方差时的平方指数.
-	variancePower = 2
 )
 
 var (
@@ -396,16 +392,16 @@ func getSegment(index int) (*SegmentData, error) {
 	ret.Average = Duration(math.Round(float64(total) / float64(len(times))))
 	slices.Sort(times)
 
-	if len(times)%medianDivisor == 1 {
-		ret.Median = times[len(times)/medianDivisor]
+	if len(times)%2 == 1 {
+		ret.Median = times[len(times)/2]
 	} else {
-		mid := len(times) / medianDivisor
-		ret.Median = Duration(math.Round(float64(times[mid-1]+times[mid]) / medianDivisor))
+		mid := len(times) / 2
+		ret.Median = Duration(math.Round(float64(times[mid-1]+times[mid]) / 2))
 	}
 
 	var sdSum float64
 	for _, t := range times {
-		sdSum += math.Pow(float64(t)-float64(ret.Average), variancePower)
+		sdSum += math.Pow(float64(t)-float64(ret.Average), 2)
 	}
 
 	ret.StandardDeviation = int(time.Duration(math.Round(math.Sqrt(sdSum / float64(len(times))))).Seconds())
