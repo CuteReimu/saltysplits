@@ -11,6 +11,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	// serverAddr 是Web服务器监听的地址.
+	serverAddr = "127.0.0.1:12334"
+	// serverURL 是完整的服务器URL，用于在浏览器中打开.
+	serverURL = "http://127.0.0.1:12334/"
+)
+
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
@@ -89,7 +96,7 @@ func initWebUi() {
 	g.StaticFS("/x/", http.FS(htmlFiles))
 
 	go func() {
-		if err := g.Run("127.0.0.1:12334"); err != nil {
+		if err := g.Run(serverAddr); err != nil {
 			panic(err)
 		}
 	}()

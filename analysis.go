@@ -15,6 +15,15 @@ import (
 	"time"
 )
 
+const (
+	// largeFileThreshold 是判断文件是否过大的阈值.
+	largeFileThreshold = 200
+	// maxResetSegments 是重置统计中显示的最大分段数.
+	maxResetSegments = 14
+	// topRunsCount 是速通分析中展示的最佳速通次数.
+	topRunsCount = 5
+)
+
 var (
 	run *xmlRun
 
@@ -83,7 +92,7 @@ func analysis() {
 		panic(err)
 	}
 
-	if len(run.Attempt) > 200 {
+	if len(run.Attempt) > largeFileThreshold {
 		fmt.Printf("该文件包含 %d 次尝试，你可以指定一个起始尝试ID以缩小分析范围: \n", len(run.Attempt))
 
 		_, _ = fmt.Scanln(&startAttemptId)
@@ -95,15 +104,15 @@ func analysis() {
 	analysisResetData()
 	analysisRun()
 
-	fmt.Println("请打开浏览器访问 http://127.0.0.1:12334/ 查看分析结果")
+	fmt.Println("请打开浏览器访问 " + serverURL + " 查看分析结果")
 
 	switch strings.ToLower(runtime.GOOS) {
 	case "windows":
-		_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", "http://127.0.0.1:12334/").Start()
+		_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", serverURL).Start()
 	case "linux":
-		_ = exec.Command("xdg-open", "http://127.0.0.1:12334/").Start()
+		_ = exec.Command("xdg-open", serverURL).Start()
 	case "darwin":
-		_ = exec.Command("open", "http://127.0.0.1:12334/").Start()
+		_ = exec.Command("open", serverURL).Start()
 	}
 }
 
@@ -264,7 +273,7 @@ func getResetCount(realResetCache, gameResetCache map[int]int, segmentIndex int)
 
 func sortResetData(data *[]ResetData) {
 	var otherCount int
-	for len(*data) >= 14 {
+	for len(*data) >= maxResetSegments {
 		v := slices.MinFunc(*data, func(a, b ResetData) int {
 			return a.Count - b.Count
 		})
@@ -310,8 +319,8 @@ func analysisRun() {
 		return int(a.Time - b.Time)
 	})
 
-	if len(m) > 5 {
-		m = m[:5]
+	if len(m) > topRunsCount {
+		m = m[:topRunsCount]
 	}
 
 	for _, at := range m {
