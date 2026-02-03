@@ -9,6 +9,19 @@ import (
 	"time"
 )
 
+const (
+	// timeFormatParts 是时间格式的预期部分数（时:分:秒）.
+	timeFormatParts = 3
+	// fractionParts 是小数部分的预期部分数（秒.毫秒）.
+	fractionParts = 2
+	// maxNanosecondDigits 是纳秒的最大位数.
+	maxNanosecondDigits = 9
+	// millisecondDivisor 用于将毫秒转换为较粗粒度的显示.
+	millisecondDivisor = 10
+	// shortTimeMinuteThreshold 是使用短时间格式的分钟阈值.
+	shortTimeMinuteThreshold = 10
+)
+
 type Duration time.Duration
 
 func (duration *Duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
@@ -23,8 +36,8 @@ func (duration *Duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) e
 		return nil
 	}
 
-	parts := strings.SplitN(s, ":", 3)
-	if len(parts) != 3 {
+	parts := strings.SplitN(s, ":", timeFormatParts)
+	if len(parts) != timeFormatParts {
 		return errors.New("invalid format")
 	}
 
@@ -39,7 +52,7 @@ func (duration *Duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) e
 	}
 
 	secPart := parts[2]
-	secParts := strings.SplitN(secPart, ".", 2)
+	secParts := strings.SplitN(secPart, ".", fractionParts)
 
 	sec, err := strconv.Atoi(secParts[0])
 	if err != nil {
@@ -47,13 +60,13 @@ func (duration *Duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) e
 	}
 
 	var ns int
-	if len(secParts) == 2 {
+	if len(secParts) == fractionParts {
 		frac := secParts[1]
-		if len(frac) > 9 {
-			frac = frac[:9]
+		if len(frac) > maxNanosecondDigits {
+			frac = frac[:maxNanosecondDigits]
 		}
 
-		for len(frac) < 9 {
+		for len(frac) < maxNanosecondDigits {
 			frac += "0"
 		}
 
@@ -89,8 +102,8 @@ func (duration Duration) MarshalJSON() ([]byte, error) {
 	s := d / time.Second
 	d -= s * time.Second
 
-	if h == 0 && m < 10 {
-		ms := d / time.Millisecond / 10
+	if h == 0 && m < shortTimeMinuteThreshold {
+		ms := d / time.Millisecond / millisecondDivisor
 
 		if neg {
 			return fmt.Appendf(nil, `"-%d:%02d.%02d"`, m, s, ms), nil
