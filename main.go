@@ -64,10 +64,10 @@ func initWebUi() {
 	})
 	g.GET("/reset", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"realTime":    realTimeResetBig,
-			"gameTime":    gameTimeResetBig,
-			"realTimeBig": realTimeReset,
-			"gameTimeBig": gameTimeReset,
+			"realTime":    realTimeReset,
+			"gameTime":    gameTimeReset,
+			"realTimeBig": realTimeResetBig,
+			"gameTimeBig": gameTimeResetBig,
 			"disable":     disableShowBigSegment,
 		})
 	})

@@ -286,7 +286,7 @@
             },
 
             createResetData() {
-                const data = this.resetData[this.showBigSegment ? this.totalTimeType : this.totalTimeType + "Big"];
+                const data = this.resetData[this.showBigSegment ? this.totalTimeType + "Big" : this.totalTimeType];
                 const labels = data.map(item => item.Segment);
                 const values = data.map(item => item.Count);
 

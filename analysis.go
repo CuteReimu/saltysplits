@@ -223,11 +223,11 @@ func analysisResetData() {
 		realCount, gameCount = realCount+realCount0, gameCount+gameCount0
 
 		if realCount0 > 0 {
-			realTimeResetBig = append(realTimeResetBig, ResetData{seg.Name, realCount0})
+			realTimeReset = append(realTimeReset, ResetData{seg.Name, realCount0})
 		}
 
 		if gameCount0 > 0 {
-			gameTimeResetBig = append(gameTimeResetBig, ResetData{seg.Name, gameCount0})
+			gameTimeReset = append(gameTimeReset, ResetData{seg.Name, gameCount0})
 		}
 
 		if strings.HasPrefix(seg.Name, "-") && i < len(run.Segments)-1 {
@@ -236,11 +236,11 @@ func analysisResetData() {
 		}
 
 		if realCount > 0 {
-			realTimeReset = append(realTimeReset, ResetData{seg.Name, realCount})
+			realTimeResetBig = append(realTimeResetBig, ResetData{seg.Name, realCount})
 		}
 
 		if gameCount > 0 {
-			gameTimeReset = append(gameTimeReset, ResetData{seg.Name, gameCount})
+			gameTimeResetBig = append(gameTimeResetBig, ResetData{seg.Name, gameCount})
 		}
 
 		realCount, gameCount = 0, 0
