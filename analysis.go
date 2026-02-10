@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	// LargeFileThreshold 决定何时询问用户起始尝试 ID.
-	LargeFileThreshold = 200
-	// maxResetSegments 是重置统计中显示的最大分段数.
+	// largeFileThreshold 统计的起始尝试 ID
+	largeFileThreshold = 200
+	// maxResetSegments 统计重试次数中显示的 TopN 分段数
 	maxResetSegments = 14
-	// topRunsCount 是速通分析中展示的最佳速通次数.
+	// topRunsCount 速通分析中显示的 TopN 最佳尝试数
 	topRunsCount = 5
 )
 

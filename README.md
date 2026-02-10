@@ -158,11 +158,11 @@ saltysplits.exe -i C:\path\to\your\file.lss
 
 ### 代码规范
 
-项目使用 golangci-lint 进行代码质量检查，配置文件为 `\.golangci.yml`。
+项目使用 golangci-lint 进行代码质量检查，配置文件为 `.golangci.yml`。
 
 运行代码检查：
 ```bash
-golangci-lint run --timeout=5m
+golangci-lint run
 ```
 
 ### 项目特点

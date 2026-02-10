@@ -65,7 +65,7 @@ func main() {
 	}
 
 	startAttemptId := 0
-	if len(run.Attempt) > LargeFileThreshold {
+	if len(run.Attempt) > largeFileThreshold {
 		fmt.Printf("该文件包含 %d 次尝试，你可以指定一个起始尝试ID以缩小分析范围: \n", len(run.Attempt))
 
 		_, _ = fmt.Scanln(&startAttemptId)
