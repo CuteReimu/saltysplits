@@ -17,7 +17,7 @@ const (
 	topRunsCount = 5
 )
 
-// Analyzer 保存分析的状态和结果.
+// Analyzer 保存分析的状态和结果
 type Analyzer struct {
 	Run            *xmlRun
 	StartAttemptID int
@@ -39,7 +39,7 @@ type Analyzer struct {
 	attempts map[int]*xmlAttempt
 }
 
-// NewAnalyzer 创建一个新的 Analyzer 实例.
+// NewAnalyzer 创建一个新的 Analyzer 实例
 func NewAnalyzer(run *xmlRun, startAttemptId int) *Analyzer {
 	return &Analyzer{
 		Run:                   run,
@@ -49,7 +49,7 @@ func NewAnalyzer(run *xmlRun, startAttemptId int) *Analyzer {
 	}
 }
 
-// Analyze 执行所有分析任务.
+// Analyze 执行所有分析任务
 func (a *Analyzer) Analyze() error {
 	if err := a.analysisInfo(); err != nil {
 		return err
@@ -62,7 +62,7 @@ func (a *Analyzer) Analyze() error {
 	return nil
 }
 
-// GetSegment 计算特定分段的统计信息.
+// GetSegment 计算特定分段的统计信息
 func (a *Analyzer) GetSegment(index int) (*SegmentData, error) {
 	if index < 0 || index >= len(a.Run.Segments) {
 		return nil, errors.New("index out of range")
@@ -359,7 +359,7 @@ func (a *Analyzer) analysisRun() {
 	}
 }
 
-// SummaryData 保存运行的摘要统计信息.
+// SummaryData 保存运行的摘要统计信息
 type SummaryData struct {
 	BestTime         Duration
 	Sob              Duration
@@ -368,31 +368,31 @@ type SummaryData struct {
 	Playtime         Duration
 }
 
-// TotalData 代表特定尝试的总时间.
+// TotalData 代表特定尝试的总时间
 type TotalData struct {
 	Id   int `json:"id"`
 	Time float64
 }
 
-// ResetData 代表分段的重置计数.
+// ResetData 代表分段的重置计数
 type ResetData struct {
 	Segment string
 	Count   int
 }
 
-// RunBreakdownData 代表运行尝试的细分.
+// RunBreakdownData 代表运行尝试的细分
 type RunBreakdownData struct {
 	Id      int `json:"id"`
 	Details []RunBreakdownDetailData
 }
 
-// RunBreakdownDetailData 代表运行细分中分段的时间细节.
+// RunBreakdownDetailData 代表运行细分中分段的时间细节
 type RunBreakdownDetailData struct {
 	Segment int     `json:"y"`
 	Time    float64 `json:"x"`
 }
 
-// SegmentData 代表单个分段的详细统计信息.
+// SegmentData 代表单个分段的详细统计信息
 type SegmentData struct {
 	Min               Duration
 	Max               Duration
@@ -402,7 +402,7 @@ type SegmentData struct {
 	Details           []SegmentDetailData
 }
 
-// SegmentDetailData 代表分段分析中特定尝试的时间.
+// SegmentDetailData 代表分段分析中特定尝试的时间
 type SegmentDetailData struct {
 	Id   int `json:"id"`
 	Time float64

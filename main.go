@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	// serverAddr 是服务器监听的地址.
+	// serverAddr 是服务器监听的地址
 	serverAddr = "127.0.0.1:12334"
-	// serverURL 是要在浏览器中打开的完整 URL.
+	// serverURL 是要在浏览器中打开的完整 URL
 	serverURL = "http://127.0.0.1:12334/"
 )
 
@@ -35,7 +35,7 @@ var (
 	//go:embed app.css
 	appCss []byte
 
-	// fileName 是要分析的 .lss 文件的路径.
+	// fileName 是要分析的 .lss 文件的路径
 	fileName = flag.String("i", "", "指定要分析的 .lss 文件路径")
 )
 

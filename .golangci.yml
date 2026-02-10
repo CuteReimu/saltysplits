@@ -16,6 +16,7 @@ linters:
     - unparam
     - varnamelen
     - wrapcheck
+    - godot
   settings:
     cyclop:
       max-complexity: 15

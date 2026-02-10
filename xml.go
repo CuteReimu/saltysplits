@@ -12,8 +12,8 @@ import (
 // Duration 是 time.Duration 的包装器，用于支持自定义 XML 和 JSON 编组。
 type Duration time.Duration
 
-// UnmarshalXML 实现 xml.Unmarshaler 接口.
-// 它解析格式为 "h:mm:ss.ns" 或 "mm:ss.ns" 的时间字符串.
+// UnmarshalXML 实现 xml.Unmarshaler 接口。
+// 它解析格式为 "h:mm:ss.ns" 或 "mm:ss.ns" 的时间字符串。
 func (duration *Duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var content string
 	if err := d.DecodeElement(&content, &start); err != nil {
@@ -75,8 +75,8 @@ func (duration *Duration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) e
 	return nil
 }
 
-// MarshalJSON 实现 json.Marshaler 接口.
-// 它将持续时间格式化为字符串，例如 "mm:ss.xx" 或 "hh:mm:ss".
+// MarshalJSON 实现 json.Marshaler 接口。
+// 它将持续时间格式化为字符串，例如 "mm:ss.xx" 或 "hh:mm:ss"。
 func (duration Duration) MarshalJSON() ([]byte, error) {
 	d := time.Duration(duration)
 
