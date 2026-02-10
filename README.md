@@ -30,13 +30,18 @@ saltysplits/
 ├── main.go           # 程序入口，Web服务器初始化和API路由
 ├── xml.go            # XML数据结构定义和自定义类型（Duration）
 ├── analysis.go       # 核心分析逻辑，数据统计和计算
-├── index.html        # 前端页面，使用Vue.js和Chart.js展示数据
-├── go.mod            # Go模块依赖管理
-├── go.sum            # Go模块依赖校验
-├── download_cdn.sh   # Linux/Mac下载前端依赖脚本
-├── download_cdn.ps1  # Windows下载前端依赖脚本
-└── static/           # 前端依赖库存放目录
+├── app.js            # 前端逻辑（Vue 3 Composition API、Axios、Chart.js 交互）
+├── app.css           # 前端页面样式
+├── index.html        # 前端页面，仅包含 HTML 结构（Vue\+Chart.js 的逻辑与样式已拆分）
+├── go.mod            # Go 模块依赖管理
+├── go.sum            # Go 模块依赖校验
+├── download_cdn.sh   # Linux/Mac 下载前端依赖脚本
+├── download_cdn.ps1  # Windows 下载前端依赖脚本
+├── static/           # 前端依赖库存放目录
+└── README.md
 ```
+
+> 说明：前端已拆分为 `index.html`（仅负责静态结构）、`app.js`（前端交互与图表逻辑）、`app.css`（样式）。后端使用 Go 的 `//go:embed` 会在编译时将这些内容以及 `static` 目录一并嵌入二进制文件。
 
 ### 核心模块说明
 
@@ -65,10 +70,10 @@ saltysplits/
   - `analysisRun()` - 分析前5次最佳速通的分段数据
   - `getSegment()` - 计算指定分段的统计指标（平均值、中位数、标准差等）
 
-#### index.html
-- 单页面应用，使用 Vue 3 和 Element Plus 构建
-- 使用 Chart.js 绘制多种图表（折线图、饼图等）
-- 通过 Axios 异步获取后端数据并实时更新图表
+#### 前端
+- `index.html`：仅保留页面结构和必要的资源引用
+- `app.js`：使用 Vue 3 Composition API、Axios 获取后端数据并渲染 Chart.js 图表、驱动页面交互
+- `app.css`：样式集中管理，便于维护和主题调整
 
 ## 编译与使用
 
@@ -95,10 +100,10 @@ chmod +x download_cdn.sh
 ```
 
 该脚本会自动创建 `static/` 目录并下载以下库：
-- Vue 3.5.22
-- Element Plus 2.11.3
-- Axios 1.12.2
-- Chart.js 4.5.0
+- Vue
+- Element Plus
+- Axios
+- Chart.js
 
 #### 2. 编译程序
 
@@ -122,10 +127,10 @@ go build -o saltysplits.exe
 **方式二：命令行参数**
 ```bash
 # Linux/Mac
-./saltysplits -f /path/to/your/file.lss
+./saltysplits -i /path/to/your/file.lss
 
 # Windows
-saltysplits.exe -f C:\path\to\your\file.lss
+saltysplits.exe -i C:\path\to\your\file.lss
 ```
 
 #### 4. 查看结果
@@ -141,19 +146,19 @@ saltysplits.exe -f C:\path\to\your\file.lss
 ## 使用的第三方库
 
 ### 前端库（JavaScript）
-- **Vue 3** - 渐进式JavaScript框架，用于构建用户界面
-- **Element Plus** - 基于 Vue 3 的组件库，提供丰富的UI组件
-- **Chart.js** - 灵活的JavaScript图表库，用于数据可视化
-- **Axios** - 基于 Promise 的 HTTP 客户端，用于API请求
+- **Vue 3** - 渐进式 JavaScript 框架，用于构建用户界面
+- **Element Plus** - 基于 Vue 3 的组件库，提供丰富的 UI 组件
+- **Chart.js** - 灵活的 JavaScript 图表库，用于数据可视化
+- **Axios** - 基于 Promise 的 HTTP 客户端，用于 API 请求
 
 ### 后端库（Go）
-- **Gin** - 高性能的Go Web框架，用于构建REST API
+- **Gin** - 高性能的 Go Web 框架，用于构建 REST API
 
 ## 开发相关
 
 ### 代码规范
 
-项目使用 golangci-lint 进行代码质量检查，配置文件为 `.golangci.yml`。
+项目使用 golangci-lint 进行代码质量检查，配置文件为 `\.golangci.yml`。
 
 运行代码检查：
 ```bash
@@ -165,7 +170,7 @@ golangci-lint run --timeout=5m
 - **无需外部数据库**：所有数据在内存中处理
 - **跨平台支持**：支持 Windows、Linux、macOS
 - **本地运行**：数据不会上传到外部服务器，保护隐私
-- **自动资源管理**：使用 Go 的 embed 特性嵌入静态文件
+- **编译后单个文件**：使用 Go 的 embed 特性嵌入静态文件
 
 ## 许可证
 

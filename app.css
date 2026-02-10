@@ -1,0 +1,79 @@
+body {
+    margin: 0;
+    font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+}
+
+.title-text {
+    font-size: 44px;
+    font-weight: bold;
+}
+
+.category-name {
+    color: rgb(118, 166, 191);
+}
+
+.content-container {
+    width: 60%;
+    align-self: center;
+    margin-top: 20px;
+}
+
+.chart-wrapper {
+    height: 360px;
+    align-self: center;
+    margin: 20px;
+}
+
+.section-title-container {
+    width: 60%;
+    align-self: center;
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.section-title {
+    align-self: flex-start;
+}
+
+.section-title strong {
+    font-size: 28px;
+}
+
+.section-divider {
+    margin-top: 10px;
+}
+
+.breakdown-chart-wrapper {
+    align-self: center;
+}
+
+.segment-chart-card {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.segment-chart-wrapper {
+    align-self: center;
+    height: 380px;
+    margin-top: 20px;
+}
+
+.segment-stats-card {
+    margin-bottom: 100px;
+}
+
+.stats-row {
+    align-self: center;
+}
+
+/* Utility to ensure canvas takes full width/height of container if needed */
+canvas {
+    width: 100%;
+}
+

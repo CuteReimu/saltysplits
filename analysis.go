@@ -1,372 +1,80 @@
 package main
 
 import (
-	"bufio"
-	"encoding/xml"
 	"errors"
-	"flag"
-	"fmt"
 	"math"
-	"os"
-	"os/exec"
-	"runtime"
 	"slices"
 	"strings"
 	"time"
 )
 
 const (
-	// largeFileThreshold 是判断文件是否过大的阈值.
-	largeFileThreshold = 200
+	// LargeFileThreshold 决定何时询问用户起始尝试 ID.
+	LargeFileThreshold = 200
 	// maxResetSegments 是重置统计中显示的最大分段数.
 	maxResetSegments = 14
 	// topRunsCount 是速通分析中展示的最佳速通次数.
 	topRunsCount = 5
 )
 
-var (
-	run *xmlRun
+// Analyzer 保存分析的状态和结果.
+type Analyzer struct {
+	Run            *xmlRun
+	StartAttemptID int
 
-	startAttemptId int
+	Summary *SummaryData
 
-	summary *SummaryData
+	RealTimeTotalData     []TotalData
+	GameTimeTotalData     []TotalData
+	RealTimeReset         []ResetData
+	GameTimeReset         []ResetData
+	RealTimeResetBig      []ResetData
+	GameTimeResetBig      []ResetData
+	DisableShowBigSegment bool
 
-	realTimeTotalData     []TotalData
-	gameTimeTotalData     []TotalData
-	realTimeReset         []ResetData
-	gameTimeReset         []ResetData
-	realTimeResetBig      []ResetData
-	gameTimeResetBig      []ResetData
-	disableShowBigSegment = true
+	RunBreakdownSegments []string
+	RunBreakdown         []*RunBreakdownData
 
-	runBreakdownSegments []string
-	runBreakdown         []*RunBreakdownData
-
-	attempts = make(map[int]*xmlAttempt)
-)
-
-var (
-	fileName = flag.String("f", "", "指定要分析的 .lss 文件路径")
-)
-
-func getFileName() string {
-	var dummy string
-	if *fileName != "" {
-		dummy = *fileName
-	} else {
-		fmt.Println("将你的 .lss 文件拖进来，然后按回车键开始分析...")
-
-		var sb strings.Builder
-		for {
-			line, isPrefix, err := bufio.NewReader(os.Stdin).ReadLine()
-			if err != nil {
-				panic(err)
-			}
-
-			_, _ = sb.Write(line)
-
-			if !isPrefix {
-				break
-			}
-		}
-
-		dummy = strings.TrimSpace(sb.String())
-		if strings.HasPrefix(dummy, "\"") && strings.HasSuffix(dummy, "\"") {
-			dummy = dummy[1 : len(dummy)-1]
-		}
-	}
-
-	return dummy
+	// attempts map keeps attempts for quick lookup
+	attempts map[int]*xmlAttempt
 }
 
-func analysis() {
-	f := getFileName()
-
-	buf, err := os.ReadFile(f)
-	if err != nil {
-		panic(err)
-	}
-
-	err = xml.Unmarshal(buf, &run)
-	if err != nil {
-		panic(err)
-	}
-
-	if len(run.Attempt) > largeFileThreshold {
-		fmt.Printf("该文件包含 %d 次尝试，你可以指定一个起始尝试ID以缩小分析范围: \n", len(run.Attempt))
-
-		_, _ = fmt.Scanln(&startAttemptId)
-		fmt.Printf("仅分析ID大于或等于 %d 的尝试...\n", startAttemptId)
-	}
-
-	analysisInfo()
-	analysisTotalData()
-	analysisResetData()
-	analysisRun()
-
-	fmt.Println("请打开浏览器访问 " + serverURL + " 查看分析结果")
-
-	switch strings.ToLower(runtime.GOOS) {
-	case "windows":
-		_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", serverURL).Start()
-	case "linux":
-		_ = exec.Command("xdg-open", serverURL).Start()
-	case "darwin":
-		_ = exec.Command("open", serverURL).Start()
+// NewAnalyzer 创建一个新的 Analyzer 实例.
+func NewAnalyzer(run *xmlRun, startAttemptId int) *Analyzer {
+	return &Analyzer{
+		Run:                   run,
+		StartAttemptID:        startAttemptId,
+		DisableShowBigSegment: true,
+		attempts:              make(map[int]*xmlAttempt),
 	}
 }
 
-func analysisInfo() {
-	var (
-		playTime Duration
-		bestTime Duration = math.MaxInt64
-	)
-
-	for _, attempt := range run.Attempt {
-		if attempt.Id < startAttemptId {
-			continue
-		}
-
-		attempts[attempt.Id] = attempt
-
-		if attempt.GameTime > 0 {
-			bestTime = min(bestTime, attempt.GameTime)
-		}
-
-		playTime0 := max(attempt.RealTime, attempt.GameTime)
-		if attempt.Started != "" && attempt.Ended != "" {
-			started, err := time.Parse("01/02/2006 15:04:05", attempt.Started)
-			if err != nil {
-				panic(err)
-			}
-
-			ended, err := time.Parse("01/02/2006 15:04:05", attempt.Ended)
-			if err != nil {
-				panic(err)
-			}
-
-			playTime0 = max(playTime0, Duration(ended.Sub(started)))
-		}
-
-		playTime += playTime0
+// Analyze 执行所有分析任务.
+func (a *Analyzer) Analyze() error {
+	if err := a.analysisInfo(); err != nil {
+		return err
 	}
 
-	var sob Duration
+	a.analysisTotalData()
+	a.analysisResetData()
+	a.analysisRun()
 
-	for _, seg := range run.Segments {
-		var bestSegment = Duration(math.MaxInt64)
-		if seg.BestSegmentTime.GameTime > 0 {
-			bestSegment = seg.BestSegmentTime.GameTime
-		} else if seg.BestSegmentTime.RealTime > 0 {
-			bestSegment = seg.BestSegmentTime.RealTime
-		}
-
-		sob += bestSegment
-	}
-
-	summary = &SummaryData{
-		BestTime:         bestTime,
-		Sob:              sob,
-		PossibleTimesave: bestTime - sob,
-		Attempts:         run.AttemptCount - max(0, startAttemptId),
-		Playtime:         playTime,
-	}
+	return nil
 }
 
-func analysisTotalData() {
-	for _, attempt := range run.Attempt {
-		if attempt.Id < startAttemptId {
-			continue
-		}
-
-		if attempt.RealTime > 0 {
-			realTimeTotalData = append(realTimeTotalData, TotalData{attempt.Id, time.Duration(attempt.RealTime).Seconds()})
-		}
-
-		if attempt.GameTime > 0 {
-			gameTimeTotalData = append(gameTimeTotalData, TotalData{attempt.Id, time.Duration(attempt.GameTime).Seconds()})
-		}
-	}
-
-	slices.SortFunc(realTimeTotalData, func(a, b TotalData) int {
-		return a.Id - b.Id
-	})
-	slices.SortFunc(gameTimeTotalData, func(a, b TotalData) int {
-		return a.Id - b.Id
-	})
-}
-
-func analysisResetData() {
-	var (
-		realResetCache = make(map[int]int) // attemptId -> 重置分段index
-		gameResetCache = make(map[int]int) // attemptId -> 重置分段index
-	)
-	for i, seg := range run.Segments {
-		for _, history := range seg.SegmentHistory {
-			if history.Id < startAttemptId {
-				continue
-			}
-
-			if history.RealTime > 0 {
-				realResetCache[history.Id] = i + 1 // 为什么是 i + 1 呢？因为重置发生在该分段之后，说明是下一个分段重置的，应该统计为下一个分段
-			}
-
-			if history.GameTime > 0 {
-				gameResetCache[history.Id] = i + 1 // 为什么是 i + 1 呢？因为重置发生在该分段之后，说明是下一个分段重置的，应该统计为下一个分段
-			}
-		}
-	}
-
-	var realCount, gameCount int
-	for i, seg := range run.Segments {
-		realCount0, gameCount0 := getResetCount(realResetCache, gameResetCache, i)
-		realCount, gameCount = realCount+realCount0, gameCount+gameCount0
-
-		if realCount0 > 0 {
-			realTimeReset = append(realTimeReset, ResetData{seg.Name, realCount0})
-		}
-
-		if gameCount0 > 0 {
-			gameTimeReset = append(gameTimeReset, ResetData{seg.Name, gameCount0})
-		}
-
-		if strings.HasPrefix(seg.Name, "-") && i < len(run.Segments)-1 {
-			disableShowBigSegment = false
-			continue
-		}
-
-		if realCount > 0 {
-			realTimeResetBig = append(realTimeResetBig, ResetData{seg.Name, realCount})
-		}
-
-		if gameCount > 0 {
-			gameTimeResetBig = append(gameTimeResetBig, ResetData{seg.Name, gameCount})
-		}
-
-		realCount, gameCount = 0, 0
-	}
-
-	sortResetData(&realTimeReset)
-	sortResetData(&gameTimeReset)
-	sortResetData(&realTimeResetBig)
-	sortResetData(&gameTimeResetBig)
-}
-
-func getResetCount(realResetCache, gameResetCache map[int]int, segmentIndex int) (int, int) {
-	var realCount, gameCount int
-	for _, attempt := range run.Attempt {
-		if attempt.Id < startAttemptId {
-			continue
-		}
-
-		if realResetCache[attempt.Id] == segmentIndex {
-			realCount++
-		}
-
-		if gameResetCache[attempt.Id] == segmentIndex {
-			gameCount++
-		}
-	}
-
-	return realCount, gameCount
-}
-
-func sortResetData(data *[]ResetData) {
-	var otherCount int
-	for len(*data) >= maxResetSegments {
-		v := slices.MinFunc(*data, func(a, b ResetData) int {
-			return a.Count - b.Count
-		})
-		minValue := v.Count
-
-		*data = slices.DeleteFunc(*data, func(r ResetData) bool {
-			if r.Count <= minValue {
-				otherCount += r.Count
-				return true
-			}
-
-			return false
-		})
-	}
-
-	if otherCount > 0 {
-		*data = append(*data, ResetData{
-			Segment: "其它",
-			Count:   otherCount,
-		})
-	}
-}
-
-func analysisRun() {
-	type attemptTime struct {
-		Time Duration
-		Id   int
-	}
-
-	var m []attemptTime
-
-	for _, attempt := range run.Attempt {
-		if attempt.Id < startAttemptId {
-			continue
-		}
-
-		if attempt.GameTime > 0 {
-			m = append(m, attemptTime{attempt.GameTime, attempt.Id})
-		}
-	}
-
-	slices.SortFunc(m, func(a, b attemptTime) int {
-		return int(a.Time - b.Time)
-	})
-
-	if len(m) > topRunsCount {
-		m = m[:topRunsCount]
-	}
-
-	for _, at := range m {
-		data := &RunBreakdownData{
-			Id: at.Id,
-		}
-
-		var acc Duration
-		for i, seg := range run.Segments {
-			var history *xmlAttempt
-			for _, h := range seg.SegmentHistory {
-				if h.Id == at.Id {
-					history = h
-					break
-				}
-			}
-
-			if history != nil && history.GameTime > 0 {
-				acc += history.GameTime
-				data.Details = append(data.Details, RunBreakdownDetailData{
-					Segment: i,
-					Time:    time.Duration(acc).Seconds(),
-				})
-			}
-		}
-
-		runBreakdown = append(runBreakdown, data)
-	}
-
-	for _, seg := range run.Segments {
-		runBreakdownSegments = append(runBreakdownSegments, seg.Name)
-	}
-}
-
-func getSegment(index int) (*SegmentData, error) {
-	if index < 0 || index >= len(run.Segments) {
+// GetSegment 计算特定分段的统计信息.
+func (a *Analyzer) GetSegment(index int) (*SegmentData, error) {
+	if index < 0 || index >= len(a.Run.Segments) {
 		return nil, errors.New("index out of range")
 	}
 
-	seq := run.Segments[index]
+	seq := a.Run.Segments[index]
 	ret := &SegmentData{Min: Duration(math.MaxInt64)}
-	times := make([]Duration, 0, len(seq.SegmentHistory)-max(0, startAttemptId))
+	times := make([]Duration, 0, len(seq.SegmentHistory)-max(0, a.StartAttemptID))
 
 	var total Duration
 	for _, history := range seq.SegmentHistory {
-		if history.Id < startAttemptId {
+		if history.Id < a.StartAttemptID {
 			continue
 		}
 
@@ -409,6 +117,249 @@ func getSegment(index int) (*SegmentData, error) {
 	return ret, nil
 }
 
+func (a *Analyzer) analysisInfo() error {
+	var (
+		playTime Duration
+		bestTime Duration = math.MaxInt64
+	)
+
+	for _, attempt := range a.Run.Attempt {
+		if attempt.Id < a.StartAttemptID {
+			continue
+		}
+
+		a.attempts[attempt.Id] = attempt
+
+		if attempt.GameTime > 0 {
+			bestTime = min(bestTime, attempt.GameTime)
+		}
+
+		playTime0 := max(attempt.RealTime, attempt.GameTime)
+		if attempt.Started != "" && attempt.Ended != "" {
+			started, err := time.Parse("01/02/2006 15:04:05", attempt.Started)
+			if err != nil {
+				return err
+			}
+
+			ended, err := time.Parse("01/02/2006 15:04:05", attempt.Ended)
+			if err != nil {
+				return err
+			}
+
+			playTime0 = max(playTime0, Duration(ended.Sub(started)))
+		}
+
+		playTime += playTime0
+	}
+
+	var sob Duration
+
+	for _, seg := range a.Run.Segments {
+		var bestSegment = Duration(math.MaxInt64)
+		if seg.BestSegmentTime.GameTime > 0 {
+			bestSegment = seg.BestSegmentTime.GameTime
+		} else if seg.BestSegmentTime.RealTime > 0 {
+			bestSegment = seg.BestSegmentTime.RealTime
+		}
+
+		sob += bestSegment
+	}
+
+	a.Summary = &SummaryData{
+		BestTime:         bestTime,
+		Sob:              sob,
+		PossibleTimesave: bestTime - sob,
+		Attempts:         a.Run.AttemptCount - max(0, a.StartAttemptID),
+		Playtime:         playTime,
+	}
+
+	return nil
+}
+
+func (a *Analyzer) analysisTotalData() {
+	for _, attempt := range a.Run.Attempt {
+		if attempt.Id < a.StartAttemptID {
+			continue
+		}
+
+		if attempt.RealTime > 0 {
+			a.RealTimeTotalData = append(a.RealTimeTotalData, TotalData{attempt.Id, time.Duration(attempt.RealTime).Seconds()})
+		}
+
+		if attempt.GameTime > 0 {
+			a.GameTimeTotalData = append(a.GameTimeTotalData, TotalData{attempt.Id, time.Duration(attempt.GameTime).Seconds()})
+		}
+	}
+
+	slices.SortFunc(a.RealTimeTotalData, func(a, b TotalData) int {
+		return a.Id - b.Id
+	})
+	slices.SortFunc(a.GameTimeTotalData, func(a, b TotalData) int {
+		return a.Id - b.Id
+	})
+}
+
+func (a *Analyzer) analysisResetData() {
+	var (
+		realResetCache = make(map[int]int) // attemptId -> reset segment index
+		gameResetCache = make(map[int]int) // attemptId -> reset segment index
+	)
+	for i, seg := range a.Run.Segments {
+		for _, history := range seg.SegmentHistory {
+			if history.Id < a.StartAttemptID {
+				continue
+			}
+
+			// i + 1 because reset happens after this segment, meaning it reset on the NEXT segment.
+			if history.RealTime > 0 {
+				realResetCache[history.Id] = i + 1
+			}
+
+			if history.GameTime > 0 {
+				gameResetCache[history.Id] = i + 1
+			}
+		}
+	}
+
+	var realCount, gameCount int
+	for i, seg := range a.Run.Segments {
+		realCount0, gameCount0 := a.getResetCount(realResetCache, gameResetCache, i)
+		realCount, gameCount = realCount+realCount0, gameCount+gameCount0
+
+		if realCount0 > 0 {
+			a.RealTimeReset = append(a.RealTimeReset, ResetData{seg.Name, realCount0})
+		}
+
+		if gameCount0 > 0 {
+			a.GameTimeReset = append(a.GameTimeReset, ResetData{seg.Name, gameCount0})
+		}
+
+		if strings.HasPrefix(seg.Name, "-") && i < len(a.Run.Segments)-1 {
+			a.DisableShowBigSegment = false
+			continue
+		}
+
+		if realCount > 0 {
+			a.RealTimeResetBig = append(a.RealTimeResetBig, ResetData{seg.Name, realCount})
+		}
+
+		if gameCount > 0 {
+			a.GameTimeResetBig = append(a.GameTimeResetBig, ResetData{seg.Name, gameCount})
+		}
+
+		realCount, gameCount = 0, 0
+	}
+
+	sortResetData(&a.RealTimeReset)
+	sortResetData(&a.GameTimeReset)
+	sortResetData(&a.RealTimeResetBig)
+	sortResetData(&a.GameTimeResetBig)
+}
+
+func (a *Analyzer) getResetCount(realResetCache, gameResetCache map[int]int, segmentIndex int) (int, int) {
+	var realCount, gameCount int
+	for _, attempt := range a.Run.Attempt {
+		if attempt.Id < a.StartAttemptID {
+			continue
+		}
+
+		if realResetCache[attempt.Id] == segmentIndex {
+			realCount++
+		}
+
+		if gameResetCache[attempt.Id] == segmentIndex {
+			gameCount++
+		}
+	}
+
+	return realCount, gameCount
+}
+
+func sortResetData(data *[]ResetData) {
+	var otherCount int
+	for len(*data) >= maxResetSegments {
+		v := slices.MinFunc(*data, func(a, b ResetData) int {
+			return a.Count - b.Count
+		})
+		minValue := v.Count
+
+		*data = slices.DeleteFunc(*data, func(r ResetData) bool {
+			if r.Count <= minValue {
+				otherCount += r.Count
+				return true
+			}
+
+			return false
+		})
+	}
+
+	if otherCount > 0 {
+		*data = append(*data, ResetData{
+			Segment: "其它",
+			Count:   otherCount,
+		})
+	}
+}
+
+func (a *Analyzer) analysisRun() {
+	type attemptTime struct {
+		Time Duration
+		Id   int
+	}
+
+	var m []attemptTime
+
+	for _, attempt := range a.Run.Attempt {
+		if attempt.Id < a.StartAttemptID {
+			continue
+		}
+
+		if attempt.GameTime > 0 {
+			m = append(m, attemptTime{attempt.GameTime, attempt.Id})
+		}
+	}
+
+	slices.SortFunc(m, func(a, b attemptTime) int {
+		return int(a.Time - b.Time)
+	})
+
+	if len(m) > topRunsCount {
+		m = m[:topRunsCount]
+	}
+
+	for _, at := range m {
+		data := &RunBreakdownData{
+			Id: at.Id,
+		}
+
+		var acc Duration
+		for i, seg := range a.Run.Segments {
+			var history *xmlAttempt
+			for _, h := range seg.SegmentHistory {
+				if h.Id == at.Id {
+					history = h
+					break
+				}
+			}
+
+			if history != nil && history.GameTime > 0 {
+				acc += history.GameTime
+				data.Details = append(data.Details, RunBreakdownDetailData{
+					Segment: i,
+					Time:    time.Duration(acc).Seconds(),
+				})
+			}
+		}
+
+		a.RunBreakdown = append(a.RunBreakdown, data)
+	}
+
+	for _, seg := range a.Run.Segments {
+		a.RunBreakdownSegments = append(a.RunBreakdownSegments, seg.Name)
+	}
+}
+
+// SummaryData 保存运行的摘要统计信息.
 type SummaryData struct {
 	BestTime         Duration
 	Sob              Duration
@@ -417,26 +368,31 @@ type SummaryData struct {
 	Playtime         Duration
 }
 
+// TotalData 代表特定尝试的总时间.
 type TotalData struct {
 	Id   int `json:"id"`
 	Time float64
 }
 
+// ResetData 代表分段的重置计数.
 type ResetData struct {
 	Segment string
 	Count   int
 }
 
+// RunBreakdownData 代表运行尝试的细分.
 type RunBreakdownData struct {
 	Id      int `json:"id"`
 	Details []RunBreakdownDetailData
 }
 
+// RunBreakdownDetailData 代表运行细分中分段的时间细节.
 type RunBreakdownDetailData struct {
 	Segment int     `json:"y"`
 	Time    float64 `json:"x"`
 }
 
+// SegmentData 代表单个分段的详细统计信息.
 type SegmentData struct {
 	Min               Duration
 	Max               Duration
@@ -446,6 +402,7 @@ type SegmentData struct {
 	Details           []SegmentDetailData
 }
 
+// SegmentDetailData 代表分段分析中特定尝试的时间.
 type SegmentDetailData struct {
 	Id   int `json:"id"`
 	Time float64
